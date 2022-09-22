@@ -1,1 +1,1 @@
-git+https://github.com/tomtom-international/commisery.git@dcd4094e199b24e06843b8ed152209e29711a97d
+git+https://github.com/jstmlr/commisery.git@fix/allow-detached-heads
