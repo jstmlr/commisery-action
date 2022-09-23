@@ -7,6 +7,7 @@
     "build": "run-p build:*",
     "build:validate": "ncc build -o dist/validate src/main.ts && cp -f requirements.txt dist/validate/requirements.txt",
     "build:bump": "ncc build -o dist/bump src/bump.ts && cp -f requirements.txt dist/bump/requirements.txt",
+    "build:mllr": "ncc build -o dist/mllr src/mllr/mllr.ts",
     "test": "echo \"Warning: no test specified\"",
     "lint": "prettier --check **/*.ts",
     "format": "prettier --write **/*.ts"
