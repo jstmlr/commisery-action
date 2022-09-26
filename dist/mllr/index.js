@@ -9417,6 +9417,109 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 8512:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/**
+ * Copyright (C) 2022, TomTom (http://tomtom.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.SemVer = void 0;
+const SEMVER_RE = new RegExp([
+    /^(?<prefix>[A-Za-z-]+)?/,
+    /(?<major>0|[1-9][0-9]*)/,
+    /\.(?<minor>0|[1-9][0-9]*)/,
+    /\.(?<patch>0|[1-9][0-9]*)/,
+    /(?:-(?<prerelease>[-0-9a-zA-Z]+(?:\.[-0-9a-zA-Z]+)*))?/,
+    /(?:\+(?<build>[-0-9a-zA-Z]+(?:\.[-0-9a-zA-Z]+)*))?/,
+    /\s*$/
+].map(r => r.source).join(''));
+class SemVer {
+    constructor(major, minor, patch, prerelease, build, prefix) {
+        this.major = major;
+        this.minor = minor;
+        this.patch = patch;
+        this.prerelease = prerelease;
+        this.build = build;
+        this.prefix = prefix;
+    }
+    static from_string(version) {
+        const match = SEMVER_RE.exec(version);
+        if (match != null && match.groups != null) {
+            return new SemVer(+match.groups.major, +match.groups.minor, +match.groups.patch, match.groups.prerelease, match.groups.build, match.groups.prefix);
+        }
+        return null;
+    }
+    to_string() {
+        let prerelease = "";
+        if (this.prerelease) {
+            prerelease = `-${this.prerelease}`;
+        }
+        let build = "";
+        if (this.build) {
+            build = `+${this.build}`;
+        }
+        return `${this.prefix}${this.major}.${this.minor}.${this.patch}${this.prerelease}${this.build}`;
+    }
+    next_major() {
+        return new SemVer(this.major + 1, 0, 0, "", "", this.prefix);
+    }
+    next_minor() {
+        return new SemVer(this.major, this.minor + 1, 0, "", "", this.prefix);
+    }
+    next_patch() {
+        if (this.prerelease != "") {
+            return new SemVer(this.major, this.minor, this.patch, "", "", this.prefix);
+        }
+        return new SemVer(this.major, this.minor, this.patch + 1, "", "", this.prefix);
+    }
+    lessThan(rhs) {
+        if (this.major < rhs.major)
+            return true;
+        if (this.major == rhs.major) {
+            if (this.minor < rhs.minor) {
+                return true;
+            }
+            if (this.minor == rhs.minor) {
+                if (this.patch < rhs.patch) {
+                    return true;
+                }
+                if (this.patch == rhs.patch) {
+                    // only prerelease presence is currently evaluated;
+                    // TODO: commit distance-prerelease is nice to have
+                    if (this.prerelease == "" && rhs.prerelease != "") {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    equals(rhs) {
+        return (this.major == rhs.major
+            && this.minor == rhs.minor
+            && this.patch == rhs.patch
+            && !!this.prerelease == !!rhs.prerelease);
+    }
+}
+exports.SemVer = SemVer;
+
+
+/***/ }),
+
 /***/ 2877:
 /***/ ((module) => {
 
@@ -9616,6 +9719,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const github_1 = __nccwpck_require__(5438);
 const core = __nccwpck_require__(2186);
 const octokit = (0, github_1.getOctokit)(core.getInput("token"));
+const semver_1 = __nccwpck_require__(8512);
 async function run() {
     try {
         const { owner, repo } = github_1.context.repo;
@@ -9629,16 +9733,30 @@ async function run() {
             repo: repo,
         });
         console.log("ℹ️ Finding latest topological tag..");
-        let latest_tag = "";
+        let latest_semver = null;
         commits: for (const commit of commits) {
             for (const tag of tags) {
                 if (commit.sha == tag.commit.sha) {
                     console.log(` - ${commit.commit.message}`);
-                    latest_tag = tag.name;
-                    break commits;
+                    latest_semver = semver_1.SemVer.from_string(tag.name);
+                    if (latest_semver != null) {
+                        console.log(`ℹ️ Found SemVer tag: "${tag.name}"`);
+                        break commits;
+                    }
+                    else {
+                        console.log(`Commit ${commit.sha.slice(1, 6)} has non-SemVer tag: "${tag.name}"`);
+                    }
                 }
             }
-            console.log(`Commit ${commit.sha} is not associated with a tag`);
+            console.log(`Commit ${commit.sha.slice(1, 6)} is not associated with a tag`);
+        }
+        if (latest_semver != null) {
+            console.log(`Next major: ${latest_semver.next_major().to_string()}`);
+            console.log(`Next minor: ${latest_semver.next_minor().to_string()}`);
+            console.log(`Next patch: ${latest_semver.next_patch().to_string()}`);
+        }
+        else {
+            console.log("No SemVer tags found!");
         }
     }
     catch (ex) {

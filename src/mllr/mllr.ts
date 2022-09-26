@@ -41,17 +41,20 @@ commits:
           console.log(` - ${commit.commit.message}`);
           latest_semver = SemVer.from_string(tag.name)
           if (latest_semver != null) {
+            console.log(`ℹ️ Found SemVer tag: "${tag.name}"`);
             break commits;
+          } else {
+            console.log(`Commit ${commit.sha.slice(1,6)} has non-SemVer tag: "${tag.name}"`);
           }
         }
       }
-      console.log(`Commit ${commit.sha} is not associated with a tag`)
+      console.log(`Commit ${commit.sha.slice(1,6)} is not associated with a tag`)
     }
 
     if (latest_semver != null) {
-      console.log(`Next major: ${latest_semver.next_major()}`)
-      console.log(`Next minor: ${latest_semver.next_minor()}`)
-      console.log(`Next patch: ${latest_semver.next_patch()}`)
+      console.log(`Next major: ${latest_semver.next_major().to_string()}`)
+      console.log(`Next minor: ${latest_semver.next_minor().to_string()}`)
+      console.log(`Next patch: ${latest_semver.next_patch().to_string()}`)
     } else {
       console.log("No SemVer tags found!")
     }

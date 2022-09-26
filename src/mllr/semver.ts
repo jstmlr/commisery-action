@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-const SEMVER_RE = new RegExp(""
-    + /^(?<prefix>[A-Za-z-]+)?/  // optional prefix
-    + /(?<major>0|[1-9][0-9]+)/
-    + /\.(?<minor>0|[1-9][0-9]+)/
-    + /\.(?<patch>0|[1-9][0-9]+)/
-    + /(?:-(?<prerelease>[-0-9a-zA-Z]+(?:\.[-0-9a-zA-Z]+)*))?/
-    + /(?:\+(?<build>[-0-9a-zA-Z]+(?:\.[-0-9a-zA-Z]+)*))?/
-    + /\s*$/);
+const SEMVER_RE = new RegExp([
+    /^(?<prefix>[A-Za-z-]+)?/
+    , /(?<major>0|[1-9][0-9]*)/
+    , /\.(?<minor>0|[1-9][0-9]*)/
+    , /\.(?<patch>0|[1-9][0-9]*)/
+    , /(?:-(?<prerelease>[-0-9a-zA-Z]+(?:\.[-0-9a-zA-Z]+)*))?/
+    , /(?:\+(?<build>[-0-9a-zA-Z]+(?:\.[-0-9a-zA-Z]+)*))?/
+    , /\s*$/].map(r => r.source).join(''));
 
 
 export class SemVer {
@@ -52,6 +52,19 @@ export class SemVer {
                         match.groups.prefix);
     }
     return null;
+  }
+
+  public to_string() {
+    let prerelease = "";
+    if (this.prerelease) {
+      prerelease = `-${this.prerelease}`
+    }
+    let build = "";
+    if (this.build) {
+      build = `+${this.build}`;
+    }
+
+    return `${this.prefix}${this.major}.${this.minor}.${this.patch}${this.prerelease}${this.build}`
   }
   
   public next_major() {
