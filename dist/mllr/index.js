@@ -9417,76 +9417,6 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 7939:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-/**
- * Copyright (C) 2022, TomTom (http://tomtom.com).
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const github_1 = __nccwpck_require__(5438);
-const core = __nccwpck_require__(2186);
-const octokit = (0, github_1.getOctokit)(core.getInput("token"));
-function run() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const { owner, repo } = github_1.context.repo;
-            const commits = yield octokit.paginate(octokit.rest.repos.listCommits, {
-                owner: owner,
-                repo: repo,
-                sha: github_1.context.sha,
-            });
-            const tags = yield octokit.paginate(octokit.rest.repos.listTags, {
-                owner: owner,
-                repo: repo,
-            });
-            console.log("ℹ️ Finding latest topological tag..");
-            let latest_tag = "";
-            commits: for (const commit of commits) {
-                for (const tag of tags) {
-                    if (commit.sha == tag.commit.sha) {
-                        console.log(` - ${commit.commit.message}`);
-                        latest_tag = tag.name;
-                        break commits;
-                    }
-                }
-                console.log(`Commit ${commit.sha} is not associated with a tag`);
-            }
-        }
-        catch (ex) {
-            core.startGroup("❌ Exception");
-            core.setFailed(ex.message);
-        }
-    });
-}
-run();
-
-
-/***/ }),
-
 /***/ 2877:
 /***/ ((module) => {
 
@@ -9661,12 +9591,65 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-/******/ 	
-/******/ 	// startup
-/******/ 	// Load entry module and return exports
-/******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(7939);
-/******/ 	module.exports = __webpack_exports__;
-/******/ 	
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be in strict mode.
+(() => {
+"use strict";
+var exports = __webpack_exports__;
+
+/**
+ * Copyright (C) 2022, TomTom (http://tomtom.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const github_1 = __nccwpck_require__(5438);
+const core = __nccwpck_require__(2186);
+const octokit = (0, github_1.getOctokit)(core.getInput("token"));
+async function run() {
+    try {
+        const { owner, repo } = github_1.context.repo;
+        const commits = await octokit.paginate(octokit.rest.repos.listCommits, {
+            owner: owner,
+            repo: repo,
+            sha: github_1.context.sha,
+        });
+        const tags = await octokit.paginate(octokit.rest.repos.listTags, {
+            owner: owner,
+            repo: repo,
+        });
+        console.log("ℹ️ Finding latest topological tag..");
+        let latest_tag = "";
+        commits: for (const commit of commits) {
+            for (const tag of tags) {
+                if (commit.sha == tag.commit.sha) {
+                    console.log(` - ${commit.commit.message}`);
+                    latest_tag = tag.name;
+                    break commits;
+                }
+            }
+            console.log(`Commit ${commit.sha} is not associated with a tag`);
+        }
+    }
+    catch (ex) {
+        core.startGroup("❌ Exception");
+        core.setFailed(ex.message);
+    }
+}
+run();
+
+})();
+
+module.exports = __webpack_exports__;
 /******/ })()
 ;

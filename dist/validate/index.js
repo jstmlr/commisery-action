@@ -10685,7 +10685,7 @@ function wrappy (fn, cb) {
 /***/ }),
 
 /***/ 8604:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
@@ -10704,15 +10704,6 @@ function wrappy (fn, cb) {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getBumpedVersion = exports.isCommitValid = void 0;
 const core = __nccwpck_require__(2186);
@@ -10752,24 +10743,20 @@ function getErrorSubjects(message) {
  * @param commit
  * @returns
  */
-function isCommitValid(message) {
-    return __awaiter(this, void 0, void 0, function* () {
-        // Provide the commit message as file
-        yield fs.writeFileSync(".commit-message", message);
-        const { exitCode: exitCode, stderr: stderr } = yield exec.getExecOutput("cm", ["check", ".commit-message"], { ignoreReturnCode: true });
-        return [exitCode == 0, getErrorSubjects(stderr)];
-    });
+async function isCommitValid(message) {
+    // Provide the commit message as file
+    await fs.writeFileSync(".commit-message", message);
+    const { exitCode: exitCode, stderr: stderr } = await exec.getExecOutput("cm", ["check", ".commit-message"], { ignoreReturnCode: true });
+    return [exitCode == 0, getErrorSubjects(stderr)];
 }
 exports.isCommitValid = isCommitValid;
 /**
  * Returns a bumped version based on Conventional Commits after the latest Git tag
  * @returns
  */
-function getBumpedVersion() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const { stdout: version, stderr: stderr } = yield exec.getExecOutput("cm", ["next-version"], { ignoreReturnCode: true });
-        return [version.trim(), stderr.split("\n")];
-    });
+async function getBumpedVersion() {
+    const { stdout: version, stderr: stderr } = await exec.getExecOutput("cm", ["next-version"], { ignoreReturnCode: true });
+    return [version.trim(), stderr.split("\n")];
 }
 exports.getBumpedVersion = getBumpedVersion;
 
@@ -10819,15 +10806,6 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.prepareEnvironment = void 0;
 const core = __nccwpck_require__(2186);
@@ -10840,49 +10818,45 @@ const github_1 = __nccwpck_require__(978);
  * @param major Major version
  * @param minor Minor version
  */
-function checkPythonPrerequisites(major, minor) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const python_version_re = /Python\s*(\d+)\.(\d+)\.(\d+)/;
-        const { stdout: python_version } = yield exec.getExecOutput("python3", [
-            "--version",
-        ]);
-        const match = python_version_re.exec(python_version);
-        if (!match || match.length != 4) {
-            throw new Error("Unable to determine the installed Python version.");
-        }
-        if (!(parseInt(match[1]) == major && parseInt(match[2]) >= minor)) {
-            throw new Error(`Incorrect Python version installed; found ${match[1]}.${match[2]}.${match[3]}, expected >= ${major}.${minor}.0`);
-        }
-        try {
-            yield exec.getExecOutput("python3", ["-m", "pip", "--version"]);
-        }
-        catch (_a) {
-            throw new Error("Unable to determine the installed Pip version.");
-        }
-    });
+async function checkPythonPrerequisites(major, minor) {
+    const python_version_re = /Python\s*(\d+)\.(\d+)\.(\d+)/;
+    const { stdout: python_version } = await exec.getExecOutput("python3", [
+        "--version",
+    ]);
+    const match = python_version_re.exec(python_version);
+    if (!match || match.length != 4) {
+        throw new Error("Unable to determine the installed Python version.");
+    }
+    if (!(parseInt(match[1]) == major && parseInt(match[2]) >= minor)) {
+        throw new Error(`Incorrect Python version installed; found ${match[1]}.${match[2]}.${match[3]}, expected >= ${major}.${minor}.0`);
+    }
+    try {
+        await exec.getExecOutput("python3", ["-m", "pip", "--version"]);
+    }
+    catch (_a) {
+        throw new Error("Unable to determine the installed Pip version.");
+    }
 }
 /**
  * Prepares the environment for using commisery
  */
-function prepareEnvironment() {
-    return __awaiter(this, void 0, void 0, function* () {
-        core.startGroup("🌲 Preparing environment...");
-        // Ensure Python (>= 3.8) and pip are installed
-        yield checkPythonPrerequisites(3, 8);
-        // Install latest version of commisery
-        yield exec.exec("python3", [
-            "-m",
-            "pip",
-            "install",
-            "--upgrade",
-            "--requirement",
-            path.join(__dirname, "requirements.txt"),
-        ]);
-        // Retrieve the configuration
-        const [owner, repo] = (process.env.GITHUB_REPOSITORY || "").split("/");
-        yield (0, github_1.getConfig)(owner, repo, core.getInput("config"));
-        core.endGroup();
-    });
+async function prepareEnvironment() {
+    core.startGroup("🌲 Preparing environment...");
+    // Ensure Python (>= 3.8) and pip are installed
+    await checkPythonPrerequisites(3, 8);
+    // Install latest version of commisery
+    await exec.exec("python3", [
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "--requirement",
+        path.join(__dirname, "requirements.txt"),
+    ]);
+    // Retrieve the configuration
+    const [owner, repo] = (process.env.GITHUB_REPOSITORY || "").split("/");
+    await (0, github_1.getConfig)(owner, repo, core.getInput("config"));
+    core.endGroup();
 }
 exports.prepareEnvironment = prepareEnvironment;
 
@@ -10890,7 +10864,7 @@ exports.prepareEnvironment = prepareEnvironment;
 /***/ }),
 
 /***/ 978:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
@@ -10909,15 +10883,6 @@ exports.prepareEnvironment = prepareEnvironment;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getConfig = exports.createRelease = exports.getPullRequest = exports.getCommits = exports.PULLREQUEST_ID = exports.IS_PULLREQUEST_EVENT = void 0;
 const core = __nccwpck_require__(2186);
@@ -10934,16 +10899,14 @@ exports.PULLREQUEST_ID = github.context.issue.number;
  * @param pullrequest_id GitHub Pullrequest ID
  * @returns List of commit objects
  */
-function getCommits(owner, repo, pullrequest_id) {
-    return __awaiter(this, void 0, void 0, function* () {
-        // Retrieve commits from provided Pull Request
-        const { data: commits } = yield octokit.rest.pulls.listCommits({
-            owner: owner,
-            repo: repo,
-            pull_number: pullrequest_id,
-        });
-        return commits;
+async function getCommits(owner, repo, pullrequest_id) {
+    // Retrieve commits from provided Pull Request
+    const { data: commits } = await octokit.rest.pulls.listCommits({
+        owner: owner,
+        repo: repo,
+        pull_number: pullrequest_id,
     });
+    return commits;
 }
 exports.getCommits = getCommits;
 /**
@@ -10953,15 +10916,13 @@ exports.getCommits = getCommits;
  * @param pullrequest_id GitHub Pullrequest ID
  * @returns Pull Request
  */
-function getPullRequest(owner, repo, pullrequest_id) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const { data: pr } = yield octokit.rest.pulls.get({
-            owner: owner,
-            repo: repo,
-            pull_number: pullrequest_id,
-        });
-        return pr;
+async function getPullRequest(owner, repo, pullrequest_id) {
+    const { data: pr } = await octokit.rest.pulls.get({
+        owner: owner,
+        repo: repo,
+        pull_number: pullrequest_id,
     });
+    return pr;
 }
 exports.getPullRequest = getPullRequest;
 /**
@@ -10970,17 +10931,15 @@ exports.getPullRequest = getPullRequest;
  * @param repo GitHub repository
  * @param tag_name Name of the tag (and release)
  */
-function createRelease(owner, repo, tag_name) {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield octokit.rest.repos.createRelease({
-            owner: owner,
-            repo: repo,
-            tag_name: tag_name,
-            name: tag_name,
-            body: "",
-            draft: false,
-            prerelease: false,
-        });
+async function createRelease(owner, repo, tag_name) {
+    await octokit.rest.repos.createRelease({
+        owner: owner,
+        repo: repo,
+        tag_name: tag_name,
+        name: tag_name,
+        body: "",
+        draft: false,
+        prerelease: false,
     });
 }
 exports.createRelease = createRelease;
@@ -10990,88 +10949,29 @@ exports.createRelease = createRelease;
  * @param repo GitHub repository
  * @param path Path towards the Commisery configuration file
  */
-function getConfig(owner, repo, path) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const { data: config_file } = yield octokit.rest.repos.getContent({
-                owner: owner,
-                repo: repo,
-                path: path,
-                ref: github.context.ref,
-            });
-            fs.writeFileSync(".commisery.yml", Buffer.from(config_file.content, "base64"));
-        }
-        catch (error) {
-            console.log("Unable to download the specified configuration file!");
-            core.debug(error);
-            return;
-        }
-    });
+async function getConfig(owner, repo, path) {
+    try {
+        const { data: config_file } = await octokit.rest.repos.getContent({
+            owner: owner,
+            repo: repo,
+            path: path,
+            ref: github.context.ref,
+        });
+        fs.writeFileSync(".commisery.yml", Buffer.from(config_file.content, "base64"));
+    }
+    catch (error) {
+        console.log("Unable to download the specified configuration file!");
+        core.debug(error);
+        return;
+    }
 }
 exports.getConfig = getConfig;
 
 
 /***/ }),
 
-/***/ 399:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-/**
- * Copyright (C) 2020-2022, TomTom (http://tomtom.com).
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const core = __nccwpck_require__(2186);
-const environment_1 = __nccwpck_require__(6869);
-const github_1 = __nccwpck_require__(978);
-const validate_1 = __nccwpck_require__(4953);
-function run() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            if (!github_1.IS_PULLREQUEST_EVENT) {
-                core.warning("Conventional Commit Message validation requires a workflow using the `pull_request` trigger!");
-                return;
-            }
-            // Ensure that commisery is installed
-            yield (0, environment_1.prepareEnvironment)();
-            // Validate each commit against Conventional Commit standard
-            const messages = yield (0, validate_1.getMessagesToValidate)();
-            yield (0, validate_1.validateMessages)(messages);
-        }
-        catch (ex) {
-            core.setFailed(ex.message);
-        }
-    });
-}
-run();
-
-
-/***/ }),
-
 /***/ 4953:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
@@ -11090,15 +10990,6 @@ run();
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.validateMessages = exports.getMessagesToValidate = void 0;
 const core = __nccwpck_require__(2186);
@@ -11108,71 +10999,67 @@ const github_1 = __nccwpck_require__(978);
 /**
  * Determines the list of messages to validate (Pull Request and/or Commits)
  */
-function getMessagesToValidate() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const [owner, repo] = (process.env.GITHUB_REPOSITORY || "").split("/");
-        const pullrequest_id = github_1.PULLREQUEST_ID;
-        let to_validate = [];
-        // Include Pull Request title
-        if (core.getBooleanInput("validate-pull-request")) {
-            const pullrequest = yield (0, github_1.getPullRequest)(owner, repo, pullrequest_id);
+async function getMessagesToValidate() {
+    const [owner, repo] = (process.env.GITHUB_REPOSITORY || "").split("/");
+    const pullrequest_id = github_1.PULLREQUEST_ID;
+    let to_validate = [];
+    // Include Pull Request title
+    if (core.getBooleanInput("validate-pull-request")) {
+        const pullrequest = await (0, github_1.getPullRequest)(owner, repo, pullrequest_id);
+        to_validate.push({
+            title: `Pull Request Title (#${pullrequest_id})`,
+            message: pullrequest.title,
+        });
+    }
+    // Include commits associated to the Pull Request
+    if (core.getBooleanInput("validate-commits")) {
+        let commits = await (0, github_1.getCommits)(owner, repo, pullrequest_id);
+        for (const commit of commits) {
             to_validate.push({
-                title: `Pull Request Title (#${pullrequest_id})`,
-                message: pullrequest.title,
+                title: `Commit SHA (${commit.sha})`,
+                message: commit.commit.message,
             });
         }
-        // Include commits associated to the Pull Request
-        if (core.getBooleanInput("validate-commits")) {
-            let commits = yield (0, github_1.getCommits)(owner, repo, pullrequest_id);
-            for (const commit of commits) {
-                to_validate.push({
-                    title: `Commit SHA (${commit.sha})`,
-                    message: commit.commit.message,
-                });
-            }
-        }
-        return to_validate;
-    });
+    }
+    return to_validate;
 }
 exports.getMessagesToValidate = getMessagesToValidate;
 /**
  * Validates all specified messages
  */
-function validateMessages(messages) {
-    return __awaiter(this, void 0, void 0, function* () {
-        let success = true;
-        for (const item of messages) {
-            core.startGroup(`🔍 Checking ${item.title}`);
-            let [valid, errors] = yield (0, commisery_1.isCommitValid)(item.message);
-            if (!valid) {
-                core.startGroup(`❌ ${item.title}: ${item.message}`);
-                for (var error of errors) {
-                    const error_re = /\.commit-message:\d+:\d+:\s(error|info):\s(.*)/;
-                    const match = error_re.exec(error);
-                    if (!match) {
-                        continue;
-                    }
-                    if (match[1] === "error") {
-                        core.error(match[2], {
-                            title: `(${item.title}) ${item.message}`,
-                        });
-                    }
-                    else {
-                        core.info(match[2]);
-                    }
+async function validateMessages(messages) {
+    let success = true;
+    for (const item of messages) {
+        core.startGroup(`🔍 Checking ${item.title}`);
+        let [valid, errors] = await (0, commisery_1.isCommitValid)(item.message);
+        if (!valid) {
+            core.startGroup(`❌ ${item.title}: ${item.message}`);
+            for (var error of errors) {
+                const error_re = /\.commit-message:\d+:\d+:\s(error|info):\s(.*)/;
+                const match = error_re.exec(error);
+                if (!match) {
+                    continue;
                 }
-                success = false;
-                core.endGroup();
+                if (match[1] === "error") {
+                    core.error(match[2], {
+                        title: `(${item.title}) ${item.message}`,
+                    });
+                }
+                else {
+                    core.info(match[2]);
+                }
             }
+            success = false;
             core.endGroup();
         }
-        if (!success) {
-            core.setFailed(`Your Pull Request is not compliant to Conventional Commits`);
-        }
-        else {
-            console.log("✅ Your Pull Request complies to the conventional commit standard!");
-        }
-    });
+        core.endGroup();
+    }
+    if (!success) {
+        core.setFailed(`Your Pull Request is not compliant to Conventional Commits`);
+    }
+    else {
+        console.log("✅ Your Pull Request complies to the conventional commit standard!");
+    }
 }
 exports.validateMessages = validateMessages;
 
@@ -11377,12 +11264,52 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-/******/ 	
-/******/ 	// startup
-/******/ 	// Load entry module and return exports
-/******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(399);
-/******/ 	module.exports = __webpack_exports__;
-/******/ 	
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be in strict mode.
+(() => {
+"use strict";
+var exports = __webpack_exports__;
+
+/**
+ * Copyright (C) 2020-2022, TomTom (http://tomtom.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const core = __nccwpck_require__(2186);
+const environment_1 = __nccwpck_require__(6869);
+const github_1 = __nccwpck_require__(978);
+const validate_1 = __nccwpck_require__(4953);
+async function run() {
+    try {
+        if (!github_1.IS_PULLREQUEST_EVENT) {
+            core.warning("Conventional Commit Message validation requires a workflow using the `pull_request` trigger!");
+            return;
+        }
+        // Ensure that commisery is installed
+        await (0, environment_1.prepareEnvironment)();
+        // Validate each commit against Conventional Commit standard
+        const messages = await (0, validate_1.getMessagesToValidate)();
+        await (0, validate_1.validateMessages)(messages);
+    }
+    catch (ex) {
+        core.setFailed(ex.message);
+    }
+}
+run();
+
+})();
+
+module.exports = __webpack_exports__;
 /******/ })()
 ;

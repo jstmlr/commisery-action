@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-import { context, getOctokit } from "@actions/github"
+import { context, getOctokit } from "@actions/github";
 const core = require("@actions/core");
 const octokit = getOctokit(core.getInput("token"));
+import { SemVer } from "./semver";
 
 async function run() {
   try {
@@ -32,17 +33,27 @@ async function run() {
     });
     console.log("ℹ️ Finding latest topological tag..");
 
-    let latest_tag = ""
+    let latest_semver: SemVer | null = null;
 commits:
     for (const commit of commits) {
       for (const tag of tags) {
         if (commit.sha == tag.commit.sha) {
           console.log(` - ${commit.commit.message}`);
-          latest_tag = tag.name;
-          break commits;
+          latest_semver = SemVer.from_string(tag.name)
+          if (latest_semver != null) {
+            break commits;
+          }
         }
       }
       console.log(`Commit ${commit.sha} is not associated with a tag`)
+    }
+
+    if (latest_semver != null) {
+      console.log(`Next major: ${latest_semver.next_major()}`)
+      console.log(`Next minor: ${latest_semver.next_minor()}`)
+      console.log(`Next patch: ${latest_semver.next_patch()}`)
+    } else {
+      console.log("No SemVer tags found!")
     }
   } catch (ex) {
     core.startGroup("❌ Exception");
