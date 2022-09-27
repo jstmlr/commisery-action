@@ -17,10 +17,11 @@
 const core = require("@actions/core");
 const exec = require("@actions/exec");
 
-import { createRelease, IS_PULLREQUEST_EVENT } from "../github";
+import { getConfig, createRelease, IS_PULLREQUEST_EVENT } from "../github";
 import { context, getOctokit } from "@actions/github";
 
 import { ConventionalCommitMessage } from "../commit";
+import { Configuration } from "../config";
 import { SemVer, SemVerType } from "../semver";
 import {
   ConventionalCommitError,
@@ -60,6 +61,10 @@ async function run() {
       owner: owner,
       repo: repo,
     });
+    // Load configuration
+    await getConfig(core.getInput("config"));
+    const config = new Configuration(".commisery.yml");
+
     core.startGroup("🔍 Finding latest topological tag..");
 
     let latest_semver: SemVer | null = null;
@@ -98,7 +103,7 @@ async function run() {
       if (bump_type !== SemVerType.MAJOR) {
         try {
           core.debug(`Examining message: ${commit.commit.message}`);
-          const msg = new ConventionalCommitMessage(commit.commit.message);
+          const msg = new ConventionalCommitMessage(commit.commit.message, commit.sha, config);
           bump_type = msg.bump > bump_type ? msg.bump : bump_type;
           core.debug(
             `After commit type '${msg.type}', bump is: ${SemVerType[bump_type]}`

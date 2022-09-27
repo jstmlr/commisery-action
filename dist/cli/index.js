@@ -2025,6 +2025,13 @@ program
     }
     console.log(os.EOL);
     console.log((0, dedent_1.default)(`
+    Conventional Commit patch bumping tags
+    --------------------------------------`));
+    for (const key in config.patch_bump_tags) {
+        console.log(`${key}: \x1b[90m${config.patch_bump_tags[key]}\x1b[0m`);
+    }
+    console.log(os.EOL);
+    console.log((0, dedent_1.default)(`
     Commisery Validation rules
     --------------------------
     [\x1b[92mo\x1b[0m]: \x1b[90mrule is enabled\x1b[0m, [\x1b[91mx\x1b[0m]: \x1b[90mrule has been disabled\x1b[0m
@@ -2164,6 +2171,7 @@ class ConventionalCommitMessage {
         }
         this.hexsha = hexsha;
         this.config = config;
+        console.log(`My patch bump config is: ${JSON.stringify(config.patch_bump_tags)}`);
         // Initializes class based on commit message
         const metadata = getConventionalCommitMetadata(split_message);
         if (metadata === undefined) {
@@ -2200,7 +2208,7 @@ class ConventionalCommitMessage {
         if (metadata.type.trim().toLowerCase() === "feat") {
             return semver_1.SemVerType.MINOR;
         }
-        if (metadata.type.trim().toLowerCase() === "fix") {
+        if (metadata.type.trim().toLowerCase() in this.config.patch_bump_tags) {
             return semver_1.SemVerType.PATCH;
         }
         return semver_1.SemVerType.NONE;
@@ -2275,8 +2283,9 @@ const DEFAULT_ACCEPTED_TAGS = {
     test: "Updates tests",
     improvement: "Introduces improvements to the code quality of the codebase",
 };
+const DEFAULT_PATCH_BUMP_TAGS = { fix: "Patches a bug in your codebase" };
 const DEFAULT_IGNORED_RULES = [];
-const CONFIG_ITEMS = ["max-subject-length", "tags", "disable"];
+const CONFIG_ITEMS = ["max-subject-length", "tags", "disable", "patch_bump_tags"];
 /**
  * Configuration (from file)
  */
@@ -2287,6 +2296,7 @@ class Configuration {
     constructor(config_path = DEFAULT_CONFIGURATION_FILE) {
         this.max_subject_length = 80;
         this.tags = DEFAULT_ACCEPTED_TAGS;
+        this.patch_bump_tags = DEFAULT_PATCH_BUMP_TAGS;
         this.ignore = DEFAULT_IGNORED_RULES;
         this.rules = {};
         // Enable all rules by default
@@ -2337,9 +2347,10 @@ class Configuration {
                                 throw new Error(`Incorrect type '${typeof data[key][tag]}' for '${key}.${tag}', must be 'string'`);
                             }
                         }
-                        this.tags = data[key];
-                        if (!("feat" in this.tags)) {
-                            this.tags["feat"] = DEFAULT_ACCEPTED_TAGS["feat"];
+                        for (const tag in data[key]) {
+                            if (!(tag in this.tags)) {
+                                this.tags["feat"] = DEFAULT_ACCEPTED_TAGS["feat"];
+                            }
                         }
                         if (!("fix" in this.tags)) {
                             this.tags["fix"] = DEFAULT_ACCEPTED_TAGS["fix"];
@@ -2347,6 +2358,22 @@ class Configuration {
                     }
                     else {
                         throw new Error(`Incorrect type '${typeof data[key]}' for '${key}', must be '${typeof this.tags}'!`);
+                    }
+                    break;
+                case "patch_bump_tags":
+                    if (typeof data[key] == "object") {
+                        for (const tag in data[key]) {
+                            if (typeof data[key][tag] !== "string") {
+                                throw new Error(`Incorrect type '${typeof data[key][tag]}' for '${key}.${tag}', must be 'string'`);
+                            }
+                            this.patch_bump_tags = data[key];
+                            // The "fix" tag should always be present
+                            if (!("fix" in this.patch_bump_tags)) {
+                                this.patch_bump_tags["fix"] = DEFAULT_PATCH_BUMP_TAGS["fix"];
+                            }
+                            // Ensure patch bumping tags are actually allowed
+                            this.tags[tag] = data[key][tag];
+                        }
                     }
                     break;
             }

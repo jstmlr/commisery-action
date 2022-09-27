@@ -12608,6 +12608,7 @@ const exec = __nccwpck_require__(1514);
 const github_1 = __nccwpck_require__(978);
 const github_2 = __nccwpck_require__(5438);
 const commit_1 = __nccwpck_require__(1730);
+const config_1 = __nccwpck_require__(6373);
 const semver_1 = __nccwpck_require__(8593);
 const errors_1 = __nccwpck_require__(6976);
 const octokit = (0, github_2.getOctokit)(core.getInput("token"));
@@ -12642,6 +12643,9 @@ function run() {
                 owner: owner,
                 repo: repo,
             });
+            // Load configuration
+            yield (0, github_1.getConfig)(core.getInput("config"));
+            const config = new config_1.Configuration(".commisery.yml");
             core.startGroup("🔍 Finding latest topological tag..");
             let latest_semver = null;
             let bump_type = semver_1.SemVerType.NONE;
@@ -12667,7 +12671,7 @@ function run() {
                 if (bump_type !== semver_1.SemVerType.MAJOR) {
                     try {
                         core.debug(`Examining message: ${commit.commit.message}`);
-                        const msg = new commit_1.ConventionalCommitMessage(commit.commit.message);
+                        const msg = new commit_1.ConventionalCommitMessage(commit.commit.message, commit.sha, config);
                         bump_type = msg.bump > bump_type ? msg.bump : bump_type;
                         core.debug(`After commit type '${msg.type}', bump is: ${semver_1.SemVerType[bump_type]}`);
                     }
@@ -12850,6 +12854,7 @@ class ConventionalCommitMessage {
         }
         this.hexsha = hexsha;
         this.config = config;
+        console.log(`My patch bump config is: ${JSON.stringify(config.patch_bump_tags)}`);
         // Initializes class based on commit message
         const metadata = getConventionalCommitMetadata(split_message);
         if (metadata === undefined) {
@@ -12886,7 +12891,7 @@ class ConventionalCommitMessage {
         if (metadata.type.trim().toLowerCase() === "feat") {
             return semver_1.SemVerType.MINOR;
         }
-        if (metadata.type.trim().toLowerCase() === "fix") {
+        if (metadata.type.trim().toLowerCase() in this.config.patch_bump_tags) {
             return semver_1.SemVerType.PATCH;
         }
         return semver_1.SemVerType.NONE;
@@ -12961,8 +12966,9 @@ const DEFAULT_ACCEPTED_TAGS = {
     test: "Updates tests",
     improvement: "Introduces improvements to the code quality of the codebase",
 };
+const DEFAULT_PATCH_BUMP_TAGS = { fix: "Patches a bug in your codebase" };
 const DEFAULT_IGNORED_RULES = [];
-const CONFIG_ITEMS = ["max-subject-length", "tags", "disable"];
+const CONFIG_ITEMS = ["max-subject-length", "tags", "disable", "patch_bump_tags"];
 /**
  * Configuration (from file)
  */
@@ -12973,6 +12979,7 @@ class Configuration {
     constructor(config_path = DEFAULT_CONFIGURATION_FILE) {
         this.max_subject_length = 80;
         this.tags = DEFAULT_ACCEPTED_TAGS;
+        this.patch_bump_tags = DEFAULT_PATCH_BUMP_TAGS;
         this.ignore = DEFAULT_IGNORED_RULES;
         this.rules = {};
         // Enable all rules by default
@@ -13023,9 +13030,10 @@ class Configuration {
                                 throw new Error(`Incorrect type '${typeof data[key][tag]}' for '${key}.${tag}', must be 'string'`);
                             }
                         }
-                        this.tags = data[key];
-                        if (!("feat" in this.tags)) {
-                            this.tags["feat"] = DEFAULT_ACCEPTED_TAGS["feat"];
+                        for (const tag in data[key]) {
+                            if (!(tag in this.tags)) {
+                                this.tags["feat"] = DEFAULT_ACCEPTED_TAGS["feat"];
+                            }
                         }
                         if (!("fix" in this.tags)) {
                             this.tags["fix"] = DEFAULT_ACCEPTED_TAGS["fix"];
@@ -13033,6 +13041,22 @@ class Configuration {
                     }
                     else {
                         throw new Error(`Incorrect type '${typeof data[key]}' for '${key}', must be '${typeof this.tags}'!`);
+                    }
+                    break;
+                case "patch_bump_tags":
+                    if (typeof data[key] == "object") {
+                        for (const tag in data[key]) {
+                            if (typeof data[key][tag] !== "string") {
+                                throw new Error(`Incorrect type '${typeof data[key][tag]}' for '${key}.${tag}', must be 'string'`);
+                            }
+                            this.patch_bump_tags = data[key];
+                            // The "fix" tag should always be present
+                            if (!("fix" in this.patch_bump_tags)) {
+                                this.patch_bump_tags["fix"] = DEFAULT_PATCH_BUMP_TAGS["fix"];
+                            }
+                            // Ensure patch bumping tags are actually allowed
+                            this.tags[tag] = data[key][tag];
+                        }
                     }
                     break;
             }
