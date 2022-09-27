@@ -70,6 +70,16 @@ program
     }
 
     console.log(os.EOL);
+    console.log(
+      dedent(`
+    Conventional Commit patch bumping tags
+    --------------------------------------`)
+    );
+
+    for (const key in config.patch_bump_tags) {
+      console.log(`${key}: \x1b[90m${config.patch_bump_tags[key]}\x1b[0m`);
+    }
+    console.log(os.EOL);
 
     console.log(
       dedent(`

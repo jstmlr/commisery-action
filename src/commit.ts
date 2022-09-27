@@ -167,6 +167,8 @@ export class ConventionalCommitMessage {
     this.hexsha = hexsha;
     this.config = config;
 
+    console.log(`My patch bump config is: ${JSON.stringify(config.patch_bump_tags)}`);
+
     // Initializes class based on commit message
     const metadata = getConventionalCommitMetadata(split_message);
     if (metadata === undefined) {
@@ -218,7 +220,7 @@ export class ConventionalCommitMessage {
       return SemVerType.MINOR;
     }
 
-    if (metadata.type.trim().toLowerCase() === "fix") {
+    if (metadata.type.trim().toLowerCase() in this.config.patch_bump_tags) {
       return SemVerType.PATCH;
     }
 

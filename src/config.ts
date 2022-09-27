@@ -34,9 +34,10 @@ const DEFAULT_ACCEPTED_TAGS = {
   test: "Updates tests",
   improvement: "Introduces improvements to the code quality of the codebase",
 };
+const DEFAULT_PATCH_BUMP_TAGS = { fix: "Patches a bug in your codebase" }
 const DEFAULT_IGNORED_RULES = [];
 
-const CONFIG_ITEMS = ["max-subject-length", "tags", "disable"];
+const CONFIG_ITEMS = ["max-subject-length", "tags", "disable", "patch_bump_tags"];
 
 /**
  * Configuration (from file)
@@ -44,6 +45,7 @@ const CONFIG_ITEMS = ["max-subject-length", "tags", "disable"];
 export class Configuration {
   max_subject_length: number = 80;
   tags: {} = DEFAULT_ACCEPTED_TAGS;
+  patch_bump_tags: {} = DEFAULT_PATCH_BUMP_TAGS;
   ignore: string[] = DEFAULT_IGNORED_RULES;
   rules: {} = {};
 
@@ -92,10 +94,10 @@ export class Configuration {
               }
             }
 
-            this.tags = data[key];
-
-            if (!("feat" in this.tags)) {
-              this.tags["feat"] = DEFAULT_ACCEPTED_TAGS["feat"];
+            for (const tag in data[key]) {
+              if (!(tag in this.tags)) {
+                this.tags["feat"] = DEFAULT_ACCEPTED_TAGS["feat"];
+              }
             }
             if (!("fix" in this.tags)) {
               this.tags["fix"] = DEFAULT_ACCEPTED_TAGS["fix"];
@@ -108,6 +110,28 @@ export class Configuration {
             );
           }
           break;
+
+        case "patch_bump_tags":
+          if (typeof data[key] == "object") {
+            for (const tag in data[key]) {
+              if (typeof data[key][tag] !== "string") {
+                throw new Error(
+                  `Incorrect type '${typeof data[key][
+                    tag
+                  ]}' for '${key}.${tag}', must be 'string'`
+                );
+              }
+              this.patch_bump_tags = data[key];
+              // The "fix" tag should always be present
+              if (!("fix" in this.patch_bump_tags)) {
+                this.patch_bump_tags["fix"] = DEFAULT_PATCH_BUMP_TAGS["fix"];
+              }
+              // Ensure patch bumping tags are actually allowed
+              this.tags[tag] = data[key][tag];
+            }
+          }
+          break;
+
       }
     }
   }
