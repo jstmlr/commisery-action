@@ -12631,16 +12631,22 @@ const octokit = (0, github_2.getOctokit)(core.getInput("token"));
  */
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
+        console.log('Entry');
+        core.info('Entry');
         try {
             const { owner, repo } = github_2.context.repo;
-            const commits = yield octokit.paginate(octokit.rest.repos.listCommits, {
+            core.info('Starting listCommit');
+            const { data: commits } = yield octokit.rest.repos.listCommits({
                 owner: owner,
                 repo: repo,
                 sha: github_2.context.sha,
+                per_page: 100,
             });
-            const tags = yield octokit.paginate(octokit.rest.repos.listTags, {
+            core.info('Starting listTags');
+            const { data: tags } = yield octokit.rest.repos.listTags({
                 owner: owner,
                 repo: repo,
+                per_page: 100,
             });
             core.startGroup("🔍 Finding latest topological tag..");
             let latest_semver = null;

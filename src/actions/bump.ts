@@ -49,16 +49,22 @@ const octokit = getOctokit(core.getInput("token"));
  *    - create a GitHub release (and, implicitly, git tag)
  */
 async function run() {
+  console.log('Entry');
+  core.info('Entry');
   try {
     const { owner, repo } = context.repo;
-    const commits = await octokit.paginate(octokit.rest.repos.listCommits, {
+    core.info('Starting listCommit');
+    const { data: commits } = await octokit.rest.repos.listCommits({
       owner: owner,
       repo: repo,
       sha: context.sha,
+      per_page: 100,
     });
-    const tags = await octokit.paginate(octokit.rest.repos.listTags, {
+    core.info('Starting listTags');
+    const { data: tags } = await octokit.rest.repos.listTags({
       owner: owner,
       repo: repo,
+      per_page: 100,
     });
     core.startGroup("🔍 Finding latest topological tag..");
 
