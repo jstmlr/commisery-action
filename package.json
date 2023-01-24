@@ -23,7 +23,10 @@
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write **/*.ts && prettier --write **/**/*.ts",
-    "package": "pkg ."
+    "package": "run-p package:*",
+    "package:linux-x64": "pkg . -t node16-linux-x64 -o bin/commisery-linux-x64",
+    "package:macos-x64": "pkg . --no-bytecode --public-packages '*' --public -t node16-macos-x64 -o bin/commisery-macos-x64",
+    "package:macos-arm64": "pkg . --no-bytecode --public-packages '*' --public -t node16-macos-arm64 -o bin/commisery-macos-arm64"
   },
   "repository": {
     "type": "git",
