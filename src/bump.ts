@@ -26,7 +26,8 @@ import {
   FixupCommitError,
   MergeCommitError,
 } from "./errors";
-import { IVersionBumpTypeAndMessages } from "./interfaces";
+import { ICommit, IVersionBumpTypeAndMessages } from "./interfaces";
+import { processCommits } from "./validate";
 
 const PAGE_SIZE = 100;
 
@@ -70,28 +71,6 @@ function getSemVerIfMatches(
     }
   }
 
-  return null;
-}
-
-function getMessageAsConventionalCommit(
-  commitMessage: string,
-  hexsha: string,
-  config: Configuration
-): ConventionalCommitMessage | null {
-  try {
-    return new ConventionalCommitMessage(commitMessage, hexsha, config);
-  } catch (error) {
-    // Ignore compliancy errors, but rethrow other errors
-    if (
-      !(
-        error instanceof ConventionalCommitError ||
-        error instanceof MergeCommitError ||
-        error instanceof FixupCommitError
-      )
-    ) {
-      throw error;
-    }
-  }
   return null;
 }
 
@@ -156,6 +135,8 @@ export async function getVersionBumpTypeAndMessages(
   ]);
   core.debug("Fetch complete");
 
+  const commitList: ICommit[] = [];
+
   commit_loop: for (const commit of commits) {
     // Try and match this commit's hash to a tag
     for (const tag of tags) {
@@ -165,36 +146,13 @@ export async function getVersionBumpTypeAndMessages(
       }
     }
     core.debug(`Commit ${commit.sha.slice(0, 6)} is not associated with a tag`);
-
-    core.debug(`Examining message: ${commit.commit.message}`);
-    const msg = getMessageAsConventionalCommit(
-      commit.commit.message,
-      commit.sha,
-      config
-    );
-
-    // Determine the required bump if this is a conventional commit
-    if (msg) {
-      conventionalCommits.push(msg);
-    } else {
-      nonConventionalCommits.push(commit.commit.message);
-    }
-  }
-  if (nonConventionalCommits.length > 0) {
-    const plural: boolean = nonConventionalCommits.length !== 1;
-    core.info(
-      `The following commit${plural ? "s were" : " was"} not accepted as ${
-        plural ? "Conventional Commits" : " a Conventional Commit"
-      }`
-    );
-    for (const c of nonConventionalCommits) {
-      core.info(` - "${c}"`);
-    }
+    commitList.push({ message: commit.message, sha: commit.sha });
   }
 
+  const results = processCommits(commitList, config);
   return {
     foundVersion: semVer,
     requiredBump: await getVersionBumpType(conventionalCommits),
-    messages: conventionalCommits,
+    processedCommits: results,
   };
 }

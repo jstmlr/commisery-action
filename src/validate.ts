@@ -18,9 +18,14 @@ import * as core from "@actions/core";
 
 import { ConventionalCommitMessage } from "./commit";
 import { Configuration } from "./config";
-import { getCommits, getPullRequestId, getPullRequestTitle } from "./github";
+import {
+  getCommitsInPR,
+  getPullRequestId,
+  getPullRequestTitle,
+} from "./github";
 import { LlvmError } from "./logging";
 import { SemVerType } from "./semver";
+import { ICommit, IValidationResult } from "./interfaces";
 import {
   ConventionalCommitError,
   FixupCommitError,
@@ -32,10 +37,18 @@ interface ValidationResult {
   messages: ConventionalCommitMessage[];
 }
 
-function outputErrors(
+/**
+/* Takes a single non-compliant commit `message`, its `sha`, and its list of
+ * `errors`, and outputs them to `core.error` if the parameter `useErrors`
+ * is `true`, or `core.warning` otherwise.
+ * If `sha` is undefined, the message is treated as originating from a
+ * pull request title.
+ */
+function outputCommitErrors(
   message: string,
   errors: LlvmError[],
-  sha: string | undefined
+  sha: string | undefined,
+  useErrors = true
 ): void {
   const isPrTitle = sha === undefined;
 
@@ -54,7 +67,8 @@ function outputErrors(
     if (error.message === undefined) {
       continue;
     }
-    core.error(error.message, {
+    const outputFunc = useErrors ? core.error : core.warning;
+    outputFunc(error.message, {
       title: isPrTitle ? `(PR title) ${message}` : `(Commit ${sha}) ${message}`,
     });
     const indicatorMaybe = error.indicator();
@@ -66,33 +80,44 @@ function outputErrors(
 }
 
 /**
- * Validates all commit messages in the current pull request.
+ * Takes an array of IValidationResult objects and outputs the errors
+ * contained therein.
  */
-export async function validateCommitMessages(
-  config: Configuration
-): Promise<ValidationResult> {
-  const conventionalCommitMessages: ConventionalCommitMessage[] = [];
-  interface CommitResults {
-    message: string;
-    sha: string;
-    errors: LlvmError[];
+export function outputCommitListErrors(
+  validationResults: IValidationResult[],
+  useErrors = true
+): void {
+  for (const c of validationResults) {
+    if (c.errors.length > 0) {
+      outputCommitErrors(c.input.message, c.errors, c.input.sha, useErrors);
+    }
   }
+}
 
-  const results: CommitResults[] = [];
-
-  const commits = await getCommits(getPullRequestId());
+/* Takes an array of ICommit interface objects and process them using the
+ * provided `Configuration` into an array of IValidationResult objects.
+ * This contains the input, ConventionalCommitMessage object if compliant,
+ * and any errors relating to the message if not.
+ */
+export function processCommits(
+  commits: ICommit[],
+  config: Configuration
+): IValidationResult[] {
+  const results: IValidationResult[] = [];
   for (const commit of commits) {
-    const message = commit.commit.message;
+    const message = commit.message;
     const sha = commit.sha;
 
     try {
-      conventionalCommitMessages.push(
-        new ConventionalCommitMessage(message, undefined, config)
-      );
-      results.push({ message, sha, errors: [] });
+      const cc = new ConventionalCommitMessage(message, undefined, config);
+      results.push({ input: commit, message: cc, errors: [] });
     } catch (error) {
       if (error instanceof ConventionalCommitError) {
-        results.push({ message, sha, errors: error.errors });
+        results.push({
+          input: commit,
+          message: undefined,
+          errors: error.errors,
+        });
       } else if (
         error instanceof MergeCommitError ||
         error instanceof FixupCommitError
@@ -101,37 +126,44 @@ export async function validateCommitMessages(
       }
     }
   }
+  return results;
+}
 
-  const goodCommits = results.filter(c => {
-    return c.errors.length === 0;
-  });
-  const badCommits = results.filter(c => {
-    return c.errors.length !== 0;
-  });
+/**
+ * Validates all commit messages in the current pull request.
+ */
+export async function validateCommitsInCurrentPR(
+  config: Configuration
+): Promise<ValidationResult> {
+  const conventionalCommitMessages: ConventionalCommitMessage[] = [];
+  const commits: ICommit[] = await getCommitsInPR(getPullRequestId());
+  const results: IValidationResult[] = processCommits(commits, config);
 
-  if (goodCommits.length > 0) {
+  const passResults = results.filter(c => c.errors.length === 0);
+  const failResults = results.filter(c => c.errors.length !== 0);
+
+  if (passResults.length > 0) {
     core.info(
-      `✅ ${badCommits.length === 0 ? "All " : ""}${goodCommits.length}` +
+      `✅ ${failResults.length === 0 ? "All " : ""}${passResults.length}` +
         ` of the pull request's commits are valid Conventional Commits`
     );
-    for (const c of goodCommits) {
-      core.startGroup(`✅ Commit (${c.sha})`);
-      core.info(c.message);
+    for (const c of passResults) {
+      core.startGroup(`✅ Commit (${c.input.sha})`);
+      core.info(c.input.message);
       core.endGroup();
     }
   }
-  if (badCommits.length > 0) {
+  if (failResults.length > 0) {
     core.info(""); // for vertical whitespace
     core.setFailed(
-      `${badCommits.length} of the pull request's commits are not valid Conventional Commits`
+      `${failResults.length} of the pull request's commits are not valid Conventional Commits`
     );
-    for (const c of badCommits) {
-      outputErrors(c.message, c.errors, c.sha);
-    }
+
+    outputCommitListErrors(failResults);
   }
 
   return {
-    compliant: badCommits.length === 0,
+    compliant: failResults.length === 0,
     messages: conventionalCommitMessages,
   };
 }
@@ -168,7 +200,7 @@ export async function validatePrTitle(
   }
   if (errors.length > 0) {
     core.setFailed(errorMessage);
-    outputErrors(prTitleText, errors, undefined);
+    outputCommitErrors(prTitleText, errors, undefined);
   } else {
     core.startGroup(
       `✅ The pull request title is compliant with the Conventional Commits specification`
@@ -187,10 +219,7 @@ export async function validatePrTitleBump(
   config: Configuration
 ): Promise<boolean> {
   const prTitleText = await getPullRequestTitle();
-  const commits: string[] = (await getCommits(getPullRequestId())).map(m => {
-    return m.commit.message;
-  });
-  let highestBump: SemVerType = SemVerType.NONE;
+  const commits = await getCommitsInPR(getPullRequestId());
   const prTitle = await validatePrTitle(config);
   const baseError =
     "Cannot validate the consistency of bump levels between PR title and PR commits";
@@ -209,29 +238,25 @@ export async function validatePrTitleBump(
 
   core.info(""); // for vertical whitespace
 
-  for (const commit of commits) {
-    try {
-      const cc = new ConventionalCommitMessage(commit);
-      highestBump = cc.bump > highestBump ? cc.bump : highestBump;
-    } catch (error) {
-      if (
-        !(
-          error instanceof ConventionalCommitError ||
-          error instanceof MergeCommitError ||
-          error instanceof FixupCommitError
-        )
-      ) {
-        throw error;
-      }
-      core.warning(`${baseError}, as the PR contains non-compliant commits`);
-      return false;
-    }
+  const results = processCommits(commits, config);
+
+  if (results.some(c => c.errors.length !== 0)) {
+    // Abort if the list contains any non-compliant commits; bump level
+    // validation only really makes sense if all commits are found to
+    // be compliant.
+    core.warning(`${baseError}, as the PR contains non-compliant commits`);
+    return false;
   }
 
+  const highestBump: SemVerType =
+    results.reduce((acc, val) => {
+      const accb = acc.message?.bump ?? SemVerType.NONE;
+      const valb = val.message?.bump ?? SemVerType.NONE;
+      return accb > valb ? acc : val;
+    }).message?.bump ?? SemVerType.NONE;
+
   if (highestBump !== prTitle.bump) {
-    const commitSubjects = commits.map(m => {
-      return m.split("\n")[0];
-    });
+    const commitSubjects = commits.map(m => m.message.split("\n")[0]);
 
     core.setFailed(
       "The PR title's bump level is not consistent with its commits.\n" +

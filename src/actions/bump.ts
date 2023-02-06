@@ -30,6 +30,7 @@ import {
 } from "../github";
 import { IVersionBumpTypeAndMessages } from "../interfaces";
 import { SemVer } from "../semver";
+import { outputCommitListErrors, processCommits } from "../validate";
 
 /**
  * Bump action entrypoint
@@ -97,20 +98,36 @@ async function run(): Promise<void> {
       core.setOutput("current-version", currentVersion);
     }
     core.endGroup();
+    core.info(""); // for vertical whitespace
+
+    const nonCompliantCommits = bumpInfo.processedCommits.filter(
+      c => !c.message
+    );
+    if (nonCompliantCommits.length > 0) {
+      core.warning(
+        `${nonCompliantCommits.length} of the commits do not comply with ` +
+          "the Conventional Commits specification and are therefore NOT considered " +
+          "while determining the bump level."
+      );
+      core.info("⚠️ Non-compliant commits:");
+      outputCommitListErrors(nonCompliantCommits, false);
+    }
+
+    if (bumpInfo.foundVersion.major <= 0) {
+      core.info(""); // for vertical whitespace
+      core.warning(
+        config.initialDevelopment
+          ? "This repository is under 'initial development'; breaking changes will bump the `MINOR` version."
+          : "Enforcing version `1.0.0` as we are no longer in `initial development`."
+      );
+      core.info("");
+    }
 
     core.startGroup("🔍 Determining bump");
     const nextVersion: SemVer | null = bumpInfo.foundVersion.bump(
       bumpInfo.requiredBump,
       config.initialDevelopment
     );
-
-    if (bumpInfo.foundVersion.major <= 0) {
-      core.warning(
-        config.initialDevelopment
-          ? "This repository is under 'initial development'; breaking changes will bump the `MINOR` version."
-          : "Enforcing version `1.0.0` as we are no longer in `initial development`."
-      );
-    }
 
     if (nextVersion) {
       // Assign Build Metadata

@@ -11192,12 +11192,12 @@ class TitleCaseDescription {
     }
 }
 /**
- * Subject should not contain an unknown tag type
+ * Subject should not contain an unknown type tag
  */
 class UnknownTagType {
     constructor() {
         this.id = "C004";
-        this.description = "Subject should not contain an unknown tag type";
+        this.description = "Subject should not contain an unknown type tag";
     }
     validate(message, config) {
         if (message.type === undefined) {
