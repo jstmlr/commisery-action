@@ -127,11 +127,11 @@ class TitleCaseDescription implements IConventionalCommitRule {
 }
 
 /**
- * Subject should not contain an unknown tag type
+ * Subject should not contain an unknown type tag
  */
 class UnknownTagType implements IConventionalCommitRule {
   id = "C004";
-  description = "Subject should not contain an unknown tag type";
+  description = "Subject should not contain an unknown type tag";
 
   validate(message: ConventionalCommitMetadata, config: Configuration): void {
     if (message.type === undefined) {
