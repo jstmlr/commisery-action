@@ -344,4 +344,21 @@ describe("Configurable options", () => {
       expect(config.allowedBranches).toEqual("main");
     });
   });
+  test("Default SdkVer create release branches", () => {
+    withConfig("", config => {
+      expect(config.sdkverCreateReleaseBranches).toBe(false);
+    });
+  });
+  test("Enable SdkVer create release branches on non-SdkVer", () => {
+    // We expect a warning about this option not being useful when the version
+    // scheme is not 'sdkver'
+    jest.spyOn(core, "warning").mockImplementation(arg => {
+      expect(arg).toContain("sdkver-create-release-branches");
+      expect(arg).toContain("version-scheme");
+    });
+    withConfig("sdkver-create-release-branches: true", config => {
+      expect(config.sdkverCreateReleaseBranches).toBe(true);
+    });
+    expect(core.warning).toHaveBeenCalledTimes(1);
+  });
 });

@@ -10706,6 +10706,7 @@ const CONFIG_ITEMS = [
     "version-scheme",
     "release-branches",
     "prereleases",
+    "sdkver-create-release-branches",
 ];
 const VERSION_SCHEMES = ["semver", "sdkver"];
 /**
@@ -10869,7 +10870,7 @@ class Configuration {
                     }
                     break;
                 case "initial-development":
-                    /* Example YAML
+                    /* Example YAML:
                      *   initial-development: true
                      */
                     if (typeof data[key] === "boolean") {
@@ -10880,7 +10881,7 @@ class Configuration {
                     }
                     break;
                 case "prereleases":
-                    /* Example YAML
+                    /* Example YAML:
                      *   prereleases: ""
                      *   prereleases: "dev"
                      */
@@ -10891,7 +10892,18 @@ class Configuration {
                         throw new Error(`Incorrect type '${typeof data[key]}' for '${key}', must be '${typeof this.prereleasePrefix}'!`);
                     }
                     break;
+                case "sdkver-create-release-branches":
+                    /* Example YAML:
+                     *   sdkver-create-release-branches: true
+                     */
+                    verifyTypeMatches(key, data[key], this.sdkverCreateReleaseBranches);
+                    this.sdkverCreateReleaseBranches = data[key];
+                    break;
             }
+        }
+        if (this.sdkverCreateReleaseBranches && this.versionScheme !== "sdkver") {
+            core.warning("The configuration option `sdkver-create-release-branches` is only relevant " +
+                'when the `version-scheme` is set to `"sdkver"`.');
         }
     }
     /**
@@ -10906,6 +10918,7 @@ class Configuration {
         this.prereleasePrefix = undefined;
         this.tags = DEFAULT_ACCEPTED_TAGS;
         this.rules = new Map();
+        this.sdkverCreateReleaseBranches = false;
         for (const rule of rules_1.ALL_RULES) {
             this.rules[rule.id] = {
                 description: rule.description,

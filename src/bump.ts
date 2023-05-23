@@ -20,6 +20,7 @@ import { RequestError } from "@octokit/request-error";
 import { generateChangelogForCommits, generateChangelog } from "./changelog";
 import { Configuration } from "./config";
 import {
+  createBranch,
   createRelease,
   createTag,
   currentHeadMatchesTag,
@@ -369,6 +370,7 @@ export async function publishBump(
   headSha: string,
   changelog: string,
   isBranchAllowedToPublish: boolean,
+  shouldCreateReleaseBranch: boolean,
   updateDraftId?: number
 ): Promise<boolean> {
   const nv = nextVersion.toString();
@@ -419,6 +421,12 @@ export async function publishBump(
         if (!updated) {
           await createRelease(nv, headSha, changelog, isDev, isRc);
         }
+      }
+      if (shouldCreateReleaseBranch) {
+        createBranch(
+          `refs/heads/release/${nextVersion.major}.${nextVersion.minor}`,
+          headSha
+        );
       }
     } catch (ex: unknown) {
       // The most likely failure is a preexisting tag, in which case
@@ -513,7 +521,8 @@ export async function bumpSemVer(
       releaseMode,
       headSha,
       changelog,
-      isBranchAllowedToPublish
+      isBranchAllowedToPublish,
+      false
     );
   } else {
     core.info("ℹ️ No bump necessary");
@@ -842,12 +851,20 @@ export async function bumpSdkVer(
       changelog = await generateChangelog(bumpInfo);
     }
 
+    // Create a release branch for releases and RC's if we're configured to do so
+    // and are currently not running on a release branch.
+    const shouldCreateReleaseBranch: boolean =
+      config.sdkverCreateReleaseBranches &&
+      !isReleaseBranch &&
+      sdkVerBumpType !== "dev";
+
     bumped = await publishBump(
       nextVersion,
       releaseMode,
       headSha,
       changelog,
       isBranchAllowedToPublish,
+      shouldCreateReleaseBranch,
       // Re-use the latest draft release only when not running on a release branch,
       // otherwise we might randomly reset a `dev-N` number chain.
       !isReleaseBranch ? latestDraft?.id : undefined

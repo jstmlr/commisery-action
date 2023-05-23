@@ -11877,7 +11877,7 @@ function printNonCompliance(commits) {
     }
 }
 exports.printNonCompliance = printNonCompliance;
-function publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, updateDraftId) {
+function publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, shouldCreateReleaseBranch, updateDraftId) {
     return __awaiter(this, void 0, void 0, function* () {
         const nv = nextVersion.toString();
         core.info(`ℹ️ Next version: ${nv}`);
@@ -11916,6 +11916,9 @@ function publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllow
                     if (!updated) {
                         yield (0, github_1.createRelease)(nv, headSha, changelog, isDev, isRc);
                     }
+                }
+                if (shouldCreateReleaseBranch) {
+                    (0, github_1.createBranch)(`refs/heads/release/${nextVersion.major}.${nextVersion.minor}`, headSha);
                 }
             }
             catch (ex) {
@@ -11985,7 +11988,7 @@ function bumpSemVer(config, bumpInfo, releaseMode, branchName, headSha, isBranch
             if (buildMetadata) {
                 nextVersion.build = buildMetadata;
             }
-            bumped = yield publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish);
+            bumped = yield publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, false);
         }
         else {
             core.info("ℹ️ No bump necessary");
@@ -12252,7 +12255,12 @@ function bumpSdkVer(config, bumpInfo, releaseMode, sdkVerBumpType, headSha, bran
             else {
                 changelog = yield (0, changelog_1.generateChangelog)(bumpInfo);
             }
-            bumped = yield publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, 
+            // Create a release branch for releases and RC's if we're configured to do so
+            // and are currently not running on a release branch.
+            const shouldCreateReleaseBranch = config.sdkverCreateReleaseBranches &&
+                !isReleaseBranch &&
+                sdkVerBumpType !== "dev";
+            bumped = yield publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, shouldCreateReleaseBranch, 
             // Re-use the latest draft release only when not running on a release branch,
             // otherwise we might randomly reset a `dev-N` number chain.
             !isReleaseBranch ? latestDraft === null || latestDraft === void 0 ? void 0 : latestDraft.id : undefined);
@@ -12900,6 +12908,7 @@ const CONFIG_ITEMS = [
     "version-scheme",
     "release-branches",
     "prereleases",
+    "sdkver-create-release-branches",
 ];
 const VERSION_SCHEMES = ["semver", "sdkver"];
 /**
@@ -13063,7 +13072,7 @@ class Configuration {
                     }
                     break;
                 case "initial-development":
-                    /* Example YAML
+                    /* Example YAML:
                      *   initial-development: true
                      */
                     if (typeof data[key] === "boolean") {
@@ -13074,7 +13083,7 @@ class Configuration {
                     }
                     break;
                 case "prereleases":
-                    /* Example YAML
+                    /* Example YAML:
                      *   prereleases: ""
                      *   prereleases: "dev"
                      */
@@ -13085,7 +13094,18 @@ class Configuration {
                         throw new Error(`Incorrect type '${typeof data[key]}' for '${key}', must be '${typeof this.prereleasePrefix}'!`);
                     }
                     break;
+                case "sdkver-create-release-branches":
+                    /* Example YAML:
+                     *   sdkver-create-release-branches: true
+                     */
+                    verifyTypeMatches(key, data[key], this.sdkverCreateReleaseBranches);
+                    this.sdkverCreateReleaseBranches = data[key];
+                    break;
             }
+        }
+        if (this.sdkverCreateReleaseBranches && this.versionScheme !== "sdkver") {
+            core.warning("The configuration option `sdkver-create-release-branches` is only relevant " +
+                'when the `version-scheme` is set to `"sdkver"`.');
         }
     }
     /**
@@ -13100,6 +13120,7 @@ class Configuration {
         this.prereleasePrefix = undefined;
         this.tags = DEFAULT_ACCEPTED_TAGS;
         this.rules = new Map();
+        this.sdkverCreateReleaseBranches = false;
         for (const rule of rules_1.ALL_RULES) {
             this.rules[rule.id] = {
                 description: rule.description,
@@ -13241,7 +13262,7 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
     function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getCommitsBetweenRefs = exports.currentHeadMatchesTag = exports.getContent = exports.updateLabels = exports.getAssociatedPullRequests = exports.getLatestTags = exports.getShaForTag = exports.matchTagsToCommits = exports.getReleaseConfiguration = exports.getConfig = exports.createTag = exports.updateDraftRelease = exports.getRelease = exports.createRelease = exports.getPullRequest = exports.getCommitsInPR = exports.getPullRequestTitle = exports.getPullRequestId = exports.isPullRequestEvent = void 0;
+exports.createBranch = exports.getCommitsBetweenRefs = exports.currentHeadMatchesTag = exports.getContent = exports.updateLabels = exports.getAssociatedPullRequests = exports.getLatestTags = exports.getShaForTag = exports.matchTagsToCommits = exports.getReleaseConfiguration = exports.getConfig = exports.createTag = exports.updateDraftRelease = exports.getRelease = exports.createRelease = exports.getPullRequest = exports.getCommitsInPR = exports.getPullRequestTitle = exports.getPullRequestId = exports.isPullRequestEvent = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const fs = __importStar(__nccwpck_require__(7147));
 const github = __importStar(__nccwpck_require__(5438));
@@ -13650,6 +13671,17 @@ function getCommitsBetweenRefs(baseRef, compRef) {
     });
 }
 exports.getCommitsBetweenRefs = getCommitsBetweenRefs;
+/**
+ * Creates a new branch named `branchName` on the provided sha
+ * @param name The name of the branch to be created
+ * @param sha The commit hash of the branch-off point
+ */
+function createBranch(name, sha) {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield getOctokit().rest.git.createRef(Object.assign(Object.assign({}, github.context.repo), { ref: name.startsWith("refs/heads/") ? name : `refs/heads/${name}`, sha }));
+    });
+}
+exports.createBranch = createBranch;
 
 
 /***/ }),

@@ -29,6 +29,7 @@ initial-development: false  # OPTIONAL, defaults to `true`
 | `enable` | `None` | List of rules to enable as part of the checker (some rules are disabled by default) |
 | `allowed-branches` | `.*` | A regex specifying from which branch(es) releases and Git tags are allowed to be created |
 | `initial-development` | `true` | A boolean indicating that this project is still under _initial development_. During this state, any commit message containing a breaking change will result in a `MINOR` version bump. |
+| `sdkver-create-release-branches` | `false` | For SdkVer versioning scheme only: push a new `release/N.N` branch if an RC or release build is performed on a non-release branch. |
 
 > :bulb: By default `commisery-action` will search for the file `.commisery.yml`. 
 You can specify a different file with the `config` input parameter.

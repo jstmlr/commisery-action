@@ -72,6 +72,7 @@ const CONFIG_ITEMS = [
   "version-scheme",
   "release-branches",
   "prereleases",
+  "sdkver-create-release-branches",
 ];
 
 const VERSION_SCHEMES = ["semver", "sdkver"];
@@ -105,6 +106,7 @@ export class Configuration {
   prereleasePrefix?: string = undefined;
   tags: IConfigurationRules = DEFAULT_ACCEPTED_TAGS;
   rules: Map<string, IRuleConfigItem> = new Map<string, IRuleConfigItem>();
+  sdkverCreateReleaseBranches = false;
 
   set initialDevelopment(initialDevelopment: boolean) {
     this._initialDevelopment = initialDevelopment;
@@ -288,7 +290,7 @@ export class Configuration {
           break;
 
         case "initial-development":
-          /* Example YAML
+          /* Example YAML:
            *   initial-development: true
            */
           if (typeof data[key] === "boolean") {
@@ -303,7 +305,7 @@ export class Configuration {
           break;
 
         case "prereleases":
-          /* Example YAML
+          /* Example YAML:
            *   prereleases: ""
            *   prereleases: "dev"
            */
@@ -317,7 +319,21 @@ export class Configuration {
             );
           }
           break;
+
+        case "sdkver-create-release-branches":
+          /* Example YAML:
+           *   sdkver-create-release-branches: true
+           */
+          verifyTypeMatches(key, data[key], this.sdkverCreateReleaseBranches);
+          this.sdkverCreateReleaseBranches = data[key];
+          break;
       }
+    }
+    if (this.sdkverCreateReleaseBranches && this.versionScheme !== "sdkver") {
+      core.warning(
+        "The configuration option `sdkver-create-release-branches` is only relevant " +
+          'when the `version-scheme` is set to `"sdkver"`.'
+      );
     }
   }
 
