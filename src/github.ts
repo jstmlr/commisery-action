@@ -61,6 +61,13 @@ export function getPullRequestId(): number {
 }
 
 /**
+ * Get GitHub run number
+ */
+export function getRunNumber(): number {
+  return github.context.runNumber;
+}
+
+/**
  * The current pull request's title
  */
 export async function getPullRequestTitle(): Promise<string> {

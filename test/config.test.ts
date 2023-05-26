@@ -344,11 +344,37 @@ describe("Configurable options", () => {
       expect(config.allowedBranches).toEqual("main");
     });
   });
+
   test("Default SdkVer create release branches", () => {
     withConfig("", config => {
-      expect(config.sdkverCreateReleaseBranches).toBe(false);
+      expect(config.sdkverCreateReleaseBranches).toBe(undefined);
     });
   });
+
+  test("Boolean defaults", () => {
+    withConfig(
+      "version-scheme: sdkver\nsdkver-create-release-branches: true",
+      config => {
+        expect(config.sdkverCreateReleaseBranches).toBe("release/");
+      }
+    );
+    withConfig(
+      "version-scheme: sdkver\nsdkver-create-release-branches: false",
+      config => {
+        expect(config.sdkverCreateReleaseBranches).toBe(undefined);
+      }
+    );
+  });
+
+  test("String values", () => {
+    withConfig(
+      "version-scheme: sdkver\nsdkver-create-release-branches: some-release-prefix-",
+      config => {
+        expect(config.sdkverCreateReleaseBranches).toBe("some-release-prefix-");
+      }
+    );
+  });
+
   test("Enable SdkVer create release branches on non-SdkVer", () => {
     // We expect a warning about this option not being useful when the version
     // scheme is not 'sdkver'
@@ -356,9 +382,12 @@ describe("Configurable options", () => {
       expect(arg).toContain("sdkver-create-release-branches");
       expect(arg).toContain("version-scheme");
     });
-    withConfig("sdkver-create-release-branches: true", config => {
-      expect(config.sdkverCreateReleaseBranches).toBe(true);
-    });
+    withConfig(
+      "version-scheme: semver\nsdkver-create-release-branches: true",
+      config => {
+        expect(config.sdkverCreateReleaseBranches).toBe("release/");
+      }
+    );
     expect(core.warning).toHaveBeenCalledTimes(1);
   });
 });

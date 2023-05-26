@@ -11837,7 +11837,7 @@ function printNonCompliance(commits) {
     }
 }
 exports.printNonCompliance = printNonCompliance;
-function publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, shouldCreateReleaseBranch, updateDraftId) {
+function publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, updateDraftId) {
     return __awaiter(this, void 0, void 0, function* () {
         const nv = nextVersion.toString();
         core.info(`ℹ️ Next version: ${nv}`);
@@ -11876,9 +11876,6 @@ function publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllow
                     if (!updated) {
                         yield (0, github_1.createRelease)(nv, headSha, changelog, isDev, isRc);
                     }
-                }
-                if (shouldCreateReleaseBranch) {
-                    (0, github_1.createBranch)(`refs/heads/release/${nextVersion.major}.${nextVersion.minor}`, headSha);
                 }
             }
             catch (ex) {
@@ -11948,7 +11945,7 @@ function bumpSemVer(config, bumpInfo, releaseMode, branchName, headSha, isBranch
             if (buildMetadata) {
                 nextVersion.build = buildMetadata;
             }
-            bumped = yield publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, false);
+            bumped = yield publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish);
         }
         else {
             core.info("ℹ️ No bump necessary");
@@ -12215,18 +12212,43 @@ function bumpSdkVer(config, bumpInfo, releaseMode, sdkVerBumpType, headSha, bran
             else {
                 changelog = yield (0, changelog_1.generateChangelog)(bumpInfo);
             }
-            // Create a release branch for releases and RC's if we're configured to do so
-            // and are currently not running on a release branch.
-            const shouldCreateReleaseBranch = config.sdkverCreateReleaseBranches &&
-                !isReleaseBranch &&
-                sdkVerBumpType !== "dev";
-            bumped = yield publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, shouldCreateReleaseBranch, 
+            bumped = yield publishBump(nextVersion, releaseMode, headSha, changelog, isBranchAllowedToPublish, 
             // Re-use the latest draft release only when not running on a release branch,
             // otherwise we might randomly reset a `dev-N` number chain.
             !isReleaseBranch ? latestDraft === null || latestDraft === void 0 ? void 0 : latestDraft.id : undefined);
         }
         if (!bumped) {
             core.info("ℹ️ No bump was performed");
+        }
+        else {
+            // Create a release branch for releases and RC's if we're configured to do so
+            // and are currently not running on a release branch.
+            if (config.sdkverCreateReleaseBranches !== undefined &&
+                !isReleaseBranch &&
+                sdkVerBumpType !== "dev") {
+                const releaseBranchName = `${config.sdkverCreateReleaseBranches}${nextVersion.major}.${nextVersion.minor}`;
+                core.info(`Creating release branch ${releaseBranchName}..`);
+                try {
+                    (0, github_1.createBranch)(`refs/heads/${releaseBranchName}`, headSha);
+                }
+                catch (ex) {
+                    if (ex instanceof request_error_1.RequestError && ex.status === 422) {
+                        core.warning(`The branch '${releaseBranchName}' already exists` +
+                            `${(0, github_1.getRunNumber)() !== 1 ? " (NOTE: this is a re-run)." : "."}`);
+                    }
+                    else if (ex instanceof request_error_1.RequestError) {
+                        core.warning(`Unable to create release branch '${releaseBranchName}' due to ` +
+                            `HTTP request error (status ${ex.status}):\n${ex.message}`);
+                    }
+                    else if (ex instanceof Error) {
+                        core.setFailed(`Unable to create release branch '${releaseBranchName}':\n${ex.message}`);
+                    }
+                    else {
+                        core.setFailed(`Unknown error during ${releaseMode} creation`);
+                        throw ex;
+                    }
+                }
+            }
         }
         core.setOutput("next-version", (_f = nextVersion === null || nextVersion === void 0 ? void 0 : nextVersion.toString()) !== null && _f !== void 0 ? _f : "");
         core.endGroup();
@@ -13056,14 +13078,25 @@ class Configuration {
                     break;
                 case "sdkver-create-release-branches":
                     /* Example YAML:
-                     *   sdkver-create-release-branches: true
+                     *   sdkver-create-release-branches: true  # defaults to 'release/'
+                     *   sdkver-create-release-branches: "rel-"
                      */
-                    verifyTypeMatches(key, data[key], this.sdkverCreateReleaseBranches);
-                    this.sdkverCreateReleaseBranches = data[key];
+                    if (typeof data[key] === "boolean") {
+                        this.sdkverCreateReleaseBranches = data[key]
+                            ? "release/"
+                            : undefined;
+                    }
+                    else if (typeof data[key] === "string") {
+                        this.sdkverCreateReleaseBranches = data[key];
+                    }
+                    else {
+                        throw new Error(`Incorrect type '${typeof data[key]}' for '${key}', must be either "boolean" or "string"!`);
+                    }
                     break;
             }
         }
-        if (this.sdkverCreateReleaseBranches && this.versionScheme !== "sdkver") {
+        if (this.sdkverCreateReleaseBranches !== undefined &&
+            this.versionScheme !== "sdkver") {
             core.warning("The configuration option `sdkver-create-release-branches` is only relevant " +
                 'when the `version-scheme` is set to `"sdkver"`.');
         }
@@ -13080,7 +13113,7 @@ class Configuration {
         this.prereleasePrefix = undefined;
         this.tags = DEFAULT_ACCEPTED_TAGS;
         this.rules = new Map();
-        this.sdkverCreateReleaseBranches = false;
+        this.sdkverCreateReleaseBranches = undefined;
         for (const rule of rules_1.ALL_RULES) {
             this.rules[rule.id] = {
                 description: rule.description,
@@ -13222,7 +13255,7 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
     function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.createBranch = exports.getCommitsBetweenRefs = exports.currentHeadMatchesTag = exports.getContent = exports.updateLabels = exports.getAssociatedPullRequests = exports.getLatestTags = exports.getShaForTag = exports.matchTagsToCommits = exports.getReleaseConfiguration = exports.getConfig = exports.createTag = exports.updateDraftRelease = exports.getRelease = exports.createRelease = exports.getPullRequest = exports.getCommitsInPR = exports.getPullRequestTitle = exports.getPullRequestId = exports.isPullRequestEvent = void 0;
+exports.createBranch = exports.getCommitsBetweenRefs = exports.currentHeadMatchesTag = exports.getContent = exports.updateLabels = exports.getAssociatedPullRequests = exports.getLatestTags = exports.getShaForTag = exports.matchTagsToCommits = exports.getReleaseConfiguration = exports.getConfig = exports.createTag = exports.updateDraftRelease = exports.getRelease = exports.createRelease = exports.getPullRequest = exports.getCommitsInPR = exports.getPullRequestTitle = exports.getRunNumber = exports.getPullRequestId = exports.isPullRequestEvent = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const fs = __importStar(__nccwpck_require__(7147));
 const github = __importStar(__nccwpck_require__(5438));
@@ -13261,6 +13294,13 @@ function getPullRequestId() {
     return github.context.issue.number;
 }
 exports.getPullRequestId = getPullRequestId;
+/**
+ * Get GitHub run number
+ */
+function getRunNumber() {
+    return github.context.runNumber;
+}
+exports.getRunNumber = getRunNumber;
 /**
  * The current pull request's title
  */

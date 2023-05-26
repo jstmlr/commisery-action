@@ -335,6 +335,7 @@ describe("Create release branch", () => {
       .mockReturnValue(
         `version-scheme: "sdkver"\nsdkver-create-release-branches: true`
       );
+    setInputSpyWith({ "release-type": "rc" });
   });
 
   test.each([
@@ -362,10 +363,37 @@ describe("Create release branch", () => {
 
   it("should be default disabled", async () => {
     gh.context.ref = "refs/heads/main";
-    setInputSpyWith({ "release-type": "rc" });
     jest.spyOn(fs, "readFileSync").mockReturnValue(`version-scheme: "sdkver"`);
     await bumpaction.exportedForTesting.run();
     expect(github.createBranch).not.toHaveBeenCalled();
+  });
+
+  it("uses the default branch prefix when boolean 'true' is configured", async () => {
+    gh.context.ref = "refs/heads/main";
+    jest
+      .spyOn(fs, "readFileSync")
+      .mockReturnValue(
+        `version-scheme: "sdkver"\nsdkver-create-release-branches: true`
+      );
+    await bumpaction.exportedForTesting.run();
+    expect(github.createBranch).toHaveBeenCalledWith(
+      "refs/heads/release/1.3",
+      "baaaadb0b"
+    );
+  });
+
+  it("correctly uses string configuration values as branch prefix", async () => {
+    gh.context.ref = "refs/heads/main";
+    jest
+      .spyOn(fs, "readFileSync")
+      .mockReturnValue(
+        `version-scheme: "sdkver"\nsdkver-create-release-branches: "rel-"`
+      );
+    await bumpaction.exportedForTesting.run();
+    expect(github.createBranch).toHaveBeenCalledWith(
+      "refs/heads/rel-1.3",
+      "baaaadb0b"
+    );
   });
 });
 
