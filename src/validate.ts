@@ -30,6 +30,7 @@ import {
   ConventionalCommitError,
   FixupCommitError,
   MergeCommitError,
+  RevertCommitError,
 } from "./errors";
 
 interface ValidationResult {
@@ -124,7 +125,8 @@ export function processCommits(
         continue;
       } else if (
         error instanceof MergeCommitError ||
-        error instanceof FixupCommitError
+        error instanceof FixupCommitError ||
+        error instanceof RevertCommitError
       ) {
         continue;
       }
@@ -204,6 +206,13 @@ export async function validatePrTitle(
       } commit)`;
       core.setFailed(errorMessage);
       return undefined;
+    } else if (error instanceof RevertCommitError) {
+      // We'll allow revert commit-like PR titles, as they are the default for
+      // GitHub's "Revert" button.
+      core.startGroup("The pull request title describes a revert, which is allowed.");
+      core.info(prTitleText);
+      core.endGroup();
+      return new ConventionalCommitMessage("revert: placeholder");
     } else {
       throw error;
     }
